@@ -1,0 +1,204 @@
+
+import React, { useState } from 'react';
+import { Child } from '../types';
+import { Link } from 'react-router-dom';
+import { Plus, Search, User, Calendar, ClipboardCheck, Activity } from 'lucide-react';
+
+interface Props {
+  children: Child[];
+  onAddChild: (child: Child) => void;
+}
+
+const Dashboard: React.FC<Props> = ({ children, onAddChild }) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    birthDate: '',
+    guardian: '',
+    gender: 'M' as const,
+    condition: 'Nenhum'
+  });
+
+  const filteredChildren = children.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newChild: Child = {
+      id: crypto.randomUUID(),
+      name: formData.name,
+      birthDate: formData.birthDate,
+      gender: formData.gender,
+      guardianName: formData.guardian,
+      condition: formData.condition,
+      clinicalHistory: '',
+      assessments: []
+    };
+    onAddChild(newChild);
+    setShowAddModal(false);
+    setFormData({ name: '', birthDate: '', guardian: '', gender: 'M', condition: 'Nenhum' });
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">Pacientes</h2>
+          <p className="text-gray-500">Gerencie as avaliações e progresso das crianças.</p>
+        </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-rose-200"
+        >
+          <Plus size={20} /> Novo Cadastro
+        </button>
+      </div>
+
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <input 
+          type="text" 
+          placeholder="Buscar criança por nome..."
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none bg-white shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredChildren.map(child => (
+          <Link 
+            key={child.id} 
+            to={`/child/${child.id}`}
+            className="group bg-white p-6 rounded-2xl border border-gray-200 hover:border-rose-300 hover:shadow-xl transition-all flex flex-col gap-4 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-3 flex flex-col items-end gap-1">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${child.assessments.length > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {child.assessments.length} {child.assessments.length === 1 ? 'Avaliação' : 'Avaliações'}
+              </span>
+              {child.condition !== 'Nenhum' && (
+                <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                  {child.condition}
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center font-bold text-xl uppercase">
+                {child.name.charAt(0)}
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800 group-hover:text-rose-600 transition-colors">{child.name}</h3>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Calendar size={14} /> {new Date(child.birthDate).toLocaleDateString('pt-BR')}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+              <ClipboardCheck size={16} />
+              Última: {child.assessments.length > 0 
+                ? new Date(child.assessments[child.assessments.length - 1].date).toLocaleDateString('pt-BR')
+                : 'Nenhuma registrada'}
+            </div>
+          </Link>
+        ))}
+
+        {filteredChildren.length === 0 && (
+          <div className="col-span-full py-20 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200">
+            <User className="mx-auto text-gray-300 mb-4" size={48} />
+            <p className="text-gray-500">Nenhuma criança encontrada.</p>
+          </div>
+        )}
+      </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
+            <h3 className="text-2xl font-bold mb-6 text-gray-800">Novo Cadastro</h3>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                <input 
+                  required
+                  type="text" 
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                  value={formData.name}
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Nascimento</label>
+                  <input 
+                    required
+                    type="date" 
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                    value={formData.birthDate}
+                    onChange={e => setFormData({...formData, birthDate: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gênero</label>
+                  <select 
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                    value={formData.gender}
+                    onChange={e => setFormData({...formData, gender: e.target.value as any})}
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                    <option value="Other">Outro</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Diagnóstico / Condição</label>
+                <select 
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                  value={formData.condition}
+                  onChange={e => setFormData({...formData, condition: e.target.value})}
+                >
+                  <option value="Nenhum">Nenhum / Típico</option>
+                  <option value="Síndrome de Down">Síndrome de Down</option>
+                  <option value="TEA (Autismo)">TEA (Autismo)</option>
+                  <option value="Atraso Global">Atraso Global do Desenvolvimento</option>
+                  <option value="Paralisia Cerebral">Paralisia Cerebral</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
+                <input 
+                  required
+                  type="text" 
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                  value={formData.guardian}
+                  onChange={e => setFormData({...formData, guardian: e.target.value})}
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors font-semibold"
+                >
+                  Cadastrar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Dashboard;
