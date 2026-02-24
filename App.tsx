@@ -10,26 +10,58 @@ import { Layout, Users, Home } from 'lucide-react';
 
 const App: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('portage_data');
-    if (saved) {
-      setChildren(JSON.parse(saved));
-    }
+    fetchChildren();
   }, []);
 
-  const saveToStorage = (updatedChildren: Child[]) => {
+  const fetchChildren = async () => {
+    try {
+      const response = await fetch('/api/children');
+      if (response.ok) {
+        const data = await response.json();
+        setChildren(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch children:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveToBackend = async (updatedChildren: Child[]) => {
     setChildren(updatedChildren);
-    localStorage.setItem('portage_data', JSON.stringify(updatedChildren));
+    try {
+      await fetch('/api/children', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedChildren),
+      });
+    } catch (error) {
+      console.error('Failed to save children:', error);
+    }
   };
 
   const handleAddChild = (newChild: Child) => {
-    saveToStorage([...children, newChild]);
+    saveToBackend([...children, newChild]);
   };
 
   const handleUpdateChild = (updatedChild: Child) => {
-    saveToStorage(children.map(c => c.id === updatedChild.id ? updatedChild : c));
+    saveToBackend(children.map(c => c.id === updatedChild.id ? updatedChild : c));
   };
+
+  const handleDeleteChild = (id: string) => {
+    saveToBackend(children.filter(c => c.id !== id));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -58,9 +90,9 @@ const App: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
           <Routes>
-            <Route path="/" element={<Dashboard children={children} onAddChild={handleAddChild} />} />
-            <Route path="/children" element={<Dashboard children={children} onAddChild={handleAddChild} />} />
-            <Route path="/child/:id" element={<ChildDetails children={children} onUpdateChild={handleUpdateChild} />} />
+            <Route path="/" element={<Dashboard children={children} onAddChild={handleAddChild} onUpdateChild={handleUpdateChild} onDeleteChild={handleDeleteChild} />} />
+            <Route path="/children" element={<Dashboard children={children} onAddChild={handleAddChild} onUpdateChild={handleUpdateChild} onDeleteChild={handleDeleteChild} />} />
+            <Route path="/child/:id" element={<ChildDetails children={children} onUpdateChild={handleUpdateChild} onDeleteChild={handleDeleteChild} />} />
             <Route path="/child/:id/assess" element={<AssessmentForm children={children} onUpdateChild={handleUpdateChild} />} />
             <Route path="/child/:id/assess/:assessmentId" element={<AssessmentForm children={children} onUpdateChild={handleUpdateChild} />} />
             <Route path="/child/:id/report/:assessmentId" element={<ResultsReport children={children} />} />
