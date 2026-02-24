@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Child } from './types';
 import Dashboard from './components/Dashboard';
@@ -11,36 +11,77 @@ import { Layout, Users, Home } from 'lucide-react';
 const App: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchChildren();
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   const fetchChildren = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/children');
       if (response.ok) {
         const data = await response.json();
         setChildren(data);
+        setError(null);
+        setIsLoaded(true);
+      } else {
+        setError('Erro ao carregar dados do servidor.');
+        setIsLoaded(false);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
+      setError('Erro de conexão com o servidor.');
+      setIsLoaded(false);
     } finally {
       setLoading(false);
     }
   };
 
   const saveToBackend = async (updatedChildren: Child[]) => {
-    setChildren(updatedChildren);
-    try {
-      await fetch('/api/children', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedChildren),
-      });
-    } catch (error) {
-      console.error('Failed to save children:', error);
+    if (!isLoaded) {
+      setError('Não é possível salvar: os dados não foram carregados corretamente.');
+      return;
     }
+    
+    const previousChildren = children;
+    setChildren(updatedChildren);
+    setSaving(true);
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/children', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedChildren),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save');
+        }
+        setError(null);
+      } catch (error) {
+        console.error('Failed to save children:', error);
+        setError('Erro ao salvar dados. Tente novamente.');
+        // Rollback on failure
+        setChildren(previousChildren);
+      } finally {
+        setSaving(false);
+      }
+    }, 1000); // 1 second debounce
   };
 
   const handleAddChild = (newChild: Child) => {
@@ -83,6 +124,18 @@ const App: React.FC = () => {
           </div>
 
           <div className="mt-auto pt-6 border-t border-gray-800">
+            {saving && (
+              <div className="flex items-center gap-2 text-rose-400 text-[10px] font-black uppercase mb-2 animate-pulse">
+                <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
+                Salvando alterações...
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-900/50 border border-red-500/50 p-2 rounded text-[10px] text-red-200 font-bold mb-2">
+                {error}
+                <button onClick={() => fetchChildren()} className="block mt-1 text-white underline">Tentar novamente</button>
+              </div>
+            )}
             <p className="text-xs text-gray-500 text-center uppercase font-black tracking-widest">v1.2.0 Rose Edition</p>
           </div>
         </nav>

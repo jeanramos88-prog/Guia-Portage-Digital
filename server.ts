@@ -25,9 +25,14 @@ async function startServer() {
   // API Routes
   app.get("/api/children", (req, res) => {
     try {
+      if (!fs.existsSync(DB_FILE)) {
+        fs.writeFileSync(DB_FILE, JSON.stringify([]));
+      }
       const data = fs.readFileSync(DB_FILE, "utf-8");
+      console.log(`[GET] Fetched ${JSON.parse(data).length} children`);
       res.json(JSON.parse(data));
     } catch (error) {
+      console.error("[GET] Error reading data:", error);
       res.status(500).json({ error: "Failed to read data" });
     }
   });
@@ -35,9 +40,21 @@ async function startServer() {
   app.post("/api/children", (req, res) => {
     try {
       const children = req.body;
+      if (!Array.isArray(children)) {
+        console.error("[POST] Invalid data received:", children);
+        return res.status(400).json({ error: "Invalid data format" });
+      }
+      
+      // Create backup before writing
+      if (fs.existsSync(DB_FILE)) {
+        fs.copyFileSync(DB_FILE, `${DB_FILE}.bak`);
+      }
+
       fs.writeFileSync(DB_FILE, JSON.stringify(children, null, 2));
+      console.log(`[POST] Saved ${children.length} children`);
       res.json({ success: true });
     } catch (error) {
+      console.error("[POST] Error saving data:", error);
       res.status(500).json({ error: "Failed to save data" });
     }
   });
